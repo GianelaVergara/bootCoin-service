@@ -1,0 +1,9 @@
+spring:
+    application:
+        name: bootcoin
+cloud:
+    config:
+        uri: http://localhost:8082
+    username: bootcamp24
+    password: b00tc4mp24
+    profile: local

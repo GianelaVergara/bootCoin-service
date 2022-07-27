@@ -8,12 +8,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import java.util.Date;
-
+import org.springframework.cloud.circuitbreaker.resilience4j.ReactiveResilience4JCircuitBreakerFactory;
 
 public class ProductServiceImpl {
     @Autowired
     ICustomerService customerService;
+    private static final String CIRCUIT_BREAKER_SERVICE_CUSTOMER = "cbServiceCustomer";
 
+    @Autowired
+    ReactiveResilience4JCircuitBreakerFactory reactiveCircuitBreakerFactory;
     @Override
     public Mono<Void> registerWallet(Product product) {
         product.setTypeWallet(Product.gettypeWallet);
@@ -23,7 +26,14 @@ public class ProductServiceImpl {
                 .defaultIfEmpty(new Product(new Customer()))
                 .map(Product::getCustomer)
                 .flatMap(customer -> customerService.getCustomerById(customer.getId()))
-                .doOnNext(product::setCustomer);
-
+                .doOnNext(product::setCustomer)
+                .transform(it ->
+                        reactiveCircuitBreakerFactory.create(CIRCUIT_BREAKER_SERVICE_CUSTOMER)
+                                .run(it, this::customerFallback)
+                );
+    }
+    private Mono<Customer> customerFallback(Throwable e) {
+        log.info("CUSTOMER SERVICE IS BREAKER - MONO");
+        return Mono.empty();
     }
 }
